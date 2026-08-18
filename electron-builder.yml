@@ -1,0 +1,57 @@
+# LunarCore Claw · electron-builder 配置
+# 文档: https://www.electron.build/configuration
+#
+# 快速开始:
+#   未签名测试包:  npm run dist:mac:unsigned
+#   正式签名+公证:  npm run dist:mac        (需先配置签名环境, 见 docs/签名分发指南)
+
+appId: com.lunarcore.claw
+productName: LunarCore Claw
+copyright: Copyright © 2026 LunarCore Claw
+
+asar: true
+
+directories:
+  output: release
+
+# 只打包运行必需文件, 源码与开发依赖不进安装包
+files:
+  - dist/**/*
+  - electron/**/*
+  - package.json
+
+mac:
+  category: public.app-category.productivity
+  icon: build/icon.icns
+  minimumSystemVersion: "12.0"
+  # 公证三件套: 硬化运行时 + 关闭 Gatekeeper 评估 + entitlements
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  # 公证: 读取环境变量 APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID
+  # (也支持 App Store Connect API Key: APPLE_API_KEY / APPLE_API_KEY_ID / APPLE_API_ISSUER)
+  notarize: true
+  target:
+    - target: dmg
+      # 只出 Apple Silicon 包; 需要 Intel 或通用包时改为 [arm64, x64] 或 [universal]
+      arch: [arm64]
+    - target: zip
+      arch: [arm64]
+
+dmg:
+  title: LunarCore Claw
+  window:
+    width: 540
+    height: 380
+  contents:
+    - x: 130
+      y: 190
+      type: file
+    - x: 410
+      y: 190
+      type: link
+      path: /Applications
+
+# 发布到本地目录即可, 不配置自动更新源
+publish: null
