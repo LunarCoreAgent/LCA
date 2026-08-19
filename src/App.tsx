@@ -30,6 +30,7 @@ import RiskCenter from '@/pages/RiskCenter'
 import EnsembleCenter from '@/pages/EnsembleCenter'
 import ShadowAccount from '@/pages/ShadowAccount'
 import SourceHealth from '@/pages/SourceHealth'
+import AlphaZoo from '@/pages/AlphaZoo'
 import { Toaster } from '@/components/ui/sonner'
 
 export default function App() {
@@ -70,6 +71,7 @@ export default function App() {
         {page === 'risk' && <RiskCenter />}
         {/* {page === 'live' && <LiveTrading />} 实盘网关已隐藏（v0.10.2） */}
         {page === 'ensemble' && <EnsembleCenter />}
+        {page === 'alpha' && <AlphaZoo />}
         {page === 'versions' && <Versions />}
       </Layout>
       <Toaster richColors position="bottom-right" />

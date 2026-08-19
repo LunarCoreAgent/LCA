@@ -1,5 +1,5 @@
 // 版本履历：每次发布在此追加；APP_VERSION 与 package.json 保持一致
-export const APP_VERSION = '0.12.0'
+export const APP_VERSION = '0.13.0'
 
 export interface VersionNote {
   version: string
@@ -10,7 +10,15 @@ export interface VersionNote {
 
 export const VERSION_LOG: VersionNote[] = [
   {
-    version: 'v0.12.0', title: '行为规则提取 · 影子回测（Vibe-Trading 融合二）', current: true,
+    version: 'v0.13.0', title: '本地 quantlib · 因子工场 IC Bench（Vibe-Trading 融合三）', current: true,
+    points: [
+      '本地 TypeScript 量化函数库 quantlib：收益/回撤/夏普/卡玛、均值/方差/相关/秩次/回归/zscore、SMA/EMA/WMA/MACD/RSI/KDJ/布林/ATR、ROC/动量、皮尔逊 IC 与斯皮尔曼秩 IC、前瞻收益与 IC bench——纯函数、暖窗期 NaN 约定、页面与 Agent 共用同一套公式',
+      '公式自检机制：quantlib 内置 12 项已知输入断言（收益率/回撤/秩 IC/RSI 单边/MACD 多头排列/布林零波动…），因子工场页面实时展示自检通过状态，未过自检的公式不许上页面',
+      '新增「因子工场」（量化分组）：任意标的日 K × 9 个经典因子（20 日动量/5 日反转/低波/量比/RSI/MACD 柱/布林位置/乖离率/ATR 占比），与前瞻 5 日收益对账 IC、秩 IC、ICIR、IC>0 占比，自动判读「正向有效/反向有效/噪声区间」，秩 IC 柱状图直读',
+    ],
+  },
+  {
+    version: 'v0.12.0', title: '行为规则提取 · 影子回测（Vibe-Trading 融合二）',
     points: [
       '行为规则提取：从闭合回合 + 买卖时点的 20 日分位挖掘六类可复现模式——追高买入、低吸买入、恐慌割肉、快进止盈、亏损扛单、快速止损；每条规则给出 IF 条件 / THEN 结论 / 样本数 / 胜率 / 平均收益，样本 ≥3 才定性为「赚钱模式」或「亏钱模式」',
       '影子回测：把规则机械地在历史 K 线上重放，量化真人操作 vs 机械执行的盈亏差距——规避追高、恐慌单多拿 10 个交易日、盈利单多拿 7 个交易日、扛单改第 5 日止损，盈亏变化为正即机械执行更优',
