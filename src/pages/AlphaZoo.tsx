@@ -26,6 +26,13 @@ const FACTORS: FactorDef[] = [
   { id: 'bollpos', name: '布林位置', desc: '(close−mid)/(up−dn) ∈ [0,1]', calc: (d) => { const b = f.boll(d.close, 20, 2); return d.close.map((c, i) => (Number.isNaN(b.up[i]) || b.up[i] === b.dn[i] ? NaN : (c - b.dn[i]) / (b.up[i] - b.dn[i]))) } },
   { id: 'bias20', name: '20 日乖离率', desc: '(close−ma20)/ma20 —— 偏离度', calc: (d) => { const m = f.sma(d.close, 20); return d.close.map((c, i) => (Number.isNaN(m[i]) ? NaN : c / m[i] - 1)) } },
   { id: 'atrr', name: 'ATR 占比', desc: 'atr(14)/close —— 真实波幅', calc: (d) => { const a = f.atr(d.high, d.low, d.close, 14); return d.close.map((c, i) => (Number.isNaN(a[i]) ? NaN : a[i] / c)) } },
+  { id: 'kdjj', name: 'KDJ·J 值', desc: 'kdj(9) 的 J —— 超买超卖弹性', calc: (d) => f.kdj(d.high, d.low, d.close, 9).j },
+  { id: 'cci20', name: 'CCI(20)', desc: '典型价偏离度 —— 顺势强度', calc: (d) => f.cci(d.high, d.low, d.close, 20) },
+  { id: 'wr14', name: '威廉 WR(14)', desc: '区间位置 −100~0 —— 反向超卖', calc: (d) => f.wr(d.high, d.low, d.close, 14) },
+  { id: 'mfi14', name: 'MFI(14)', desc: '量能加权 RSI —— 资金强度', calc: (d) => f.mfi(d.high, d.low, d.close, d.volume, 14) },
+  { id: 'aroonosc', name: 'Aroon 振荡', desc: 'aroon(25) up−dn —— 趋势新旧', calc: (d) => f.aroon(d.high, d.low, 25).osc },
+  { id: 'stochk', name: '随机 %K(14)', desc: '收盘在 14 日区间的位置', calc: (d) => f.stoch(d.high, d.low, d.close, 14) },
+  { id: 'trix15', name: 'TRIX(15)', desc: '三重 EMA 变化率 —— 平滑动量', calc: (d) => f.trix(d.close, 15) },
 ]
 
 const pct = (x: number) => (Number.isNaN(x) ? '—' : `${(x * 100).toFixed(1)}%`)
@@ -110,7 +117,7 @@ export default function AlphaZoo() {
     <div className="space-y-6">
       <PageHeader
         title="因子工场 · IC Bench"
-        desc="本地 quantlib 驱动：9 个经典因子与未来 5 日收益对账 IC / 秩 IC / ICIR——单标的看时序预测力，横截面（自选股批量）看选股区分度；公式全部来自经过自检的 quantlib（Vibe-Trading：公式属于被测试的库，不属于提示词）"
+        desc="本地 quantlib（121 函数 · 50 项自检）驱动：16 个经典因子与未来 5 日收益对账 IC / 秩 IC / ICIR——单标的看时序预测力，横截面（自选股批量）看选股区分度；公式全部来自经过自检的 quantlib（Vibe-Trading：公式属于被测试的库，不属于提示词）"
         extra={
           <div className="flex gap-2 items-center">
             <div className="flex rounded-md border border-border overflow-hidden">

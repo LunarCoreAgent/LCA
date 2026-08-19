@@ -1,5 +1,5 @@
 // 版本履历：每次发布在此追加；APP_VERSION 与 package.json 保持一致
-export const APP_VERSION = '0.14.0'
+export const APP_VERSION = '0.15.0'
 
 export interface VersionNote {
   version: string
@@ -10,7 +10,16 @@ export interface VersionNote {
 
 export const VERSION_LOG: VersionNote[] = [
   {
-    version: 'v0.14.0', title: '研究剧本 · 横截面因子 Bench（Vibe-Trading 融合收官）', current: true,
+    version: 'v0.15.0', title: 'quantlib 121 函数 · MCP 量化服务器', current: true,
+    points: [
+      'quantlib 从 40+ 扩充至 121 个函数：趋势增强（DEMA/TEMA/TRIMA/KAMA/HMA/VWMA/滚动 VWAP/线性回归三件套/SAR/超级趋势/吊灯止损）、动量增强（随机 %K%D/随机RSI/CCI/威廉WR/TRIX/PPO/CMO/UO/Aroon/DMI·ADX/心理线/AO/KST/Fisher变换/涡旋/DPO/震荡指数/VHF/估波曲线）、量能（OBV/ADL/ADOSC/MFI/PVT/EOM/VROC/VR/CR）、波动（NATR/TR/滚动方差/历史波动率/肯特纳/唐奇安/溃疡指数）、风险统计（偏度/峰度/自相关/滚动百分位/VaR/CVaR/Omega/尾部比/信息比率/跟踪误差/捕获率）、K 线形态（跳空/实体/上下影线/连续计数）、横截面工具（xsRank/xsZscore/xsDemean）',
+      '公式自检从 16 项扩至 50 项已知输入断言，全部通过才可展示；沿用「公式必须来自经过测试的库」原则',
+      '因子工场因子池从 9 个扩至 16 个：新增 KDJ·J 值 / CCI(20) / 威廉 WR / MFI 资金流 / Aroon 振荡 / 随机 %K / TRIX',
+      '新增 MCP 量化服务器（scripts/mcp-server）：一条命令把 quantlib 121 函数 + IC 对账以 MCP 工具暴露给任意 MCP 客户端（npm run mcp:build / mcp:serve），外部 Agent 与本应用共用同一套经过测试的公式',
+    ],
+  },
+  {
+    version: 'v0.14.0', title: '研究剧本 · 横截面因子 Bench（Vibe-Trading 融合收官）',
     points: [
       '新增「研究剧本」（量化分组）：四个内置剧本——盘前瞭望（交易日 8:30）、收盘复盘（15:30）、持仓体检（周五 20:00）、因子巡检（周一 9:00）；采集数据走自适应数据链 → 组装上下文 → 模型成稿（无模型自动降级数据直出）→ 存档最近 30 份并写入审计链',
       '剧本可一键挂入定时任务（action 采用 playbook:<id> 结构化约定，调度器到点自动执行）',

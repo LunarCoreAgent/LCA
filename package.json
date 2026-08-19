@@ -1,7 +1,7 @@
 {
   "name": "lunar-core-claw",
   "private": true,
-  "version": "0.14.0",
+  "version": "0.15.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,7 +13,9 @@
     "dist:mac": "npm run build && electron-builder --mac --config electron-builder.yml",
     "dist:mac:unsigned": "npm run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --config electron-builder.yml",
     "pack:pkg": "bash scripts/make-pkg.sh",
-    "check:sign": "bash scripts/check-signing-env.sh"
+    "check:sign": "bash scripts/check-signing-env.sh",
+    "mcp:build": "node scripts/mcp-server/build.mjs",
+    "mcp:serve": "node scripts/mcp-server/server.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
