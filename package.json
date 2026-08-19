@@ -90,5 +90,6 @@
     "vite-plugin-singlefile": "^2.3.3"
   },
   "main": "electron/main.cjs",
-  "description": "LunarCore Claw 多模型智能体平台"
+  "description": "LunarCore Claw — 多模型智能体平台",
+  "author": "LunarCore"
 }
