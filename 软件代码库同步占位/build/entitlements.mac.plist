@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- V8 引擎 JIT 必需 -->
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+  <!-- V8/Node 动态代码页必需 -->
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+  <!-- 加载 Electron 自带框架必需（Electron 官方模板默认项） -->
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+  <!-- 访问本机 Ollama / 行情与飞书 API -->
+  <key>com.apple.security.network.client</key>
+  <true/>
+</dict>
+</plist>

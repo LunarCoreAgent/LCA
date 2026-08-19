@@ -15,12 +15,12 @@ if not TOKEN:
 
 OUT = "/mnt/agents/output"
 ASSETS = [
-    (f"{OUT}/LunarCore Claw一键安装.command", "LunarCore-Claw-0.10.2-mac-arm64-install.command"),
-    (f"{OUT}/LunarCore Claw-macOS-arm64.tar.xz", "LunarCore-Claw-0.10.2-mac-arm64.tar.xz"),
-    (f"{OUT}/LunarCore Claw-macOS-arm64.7z", "LunarCore-Claw-0.10.2-mac-arm64.7z"),
+    (f"{OUT}/LunarCore Claw一键安装.command", "LunarCore-Claw-0.11.0-mac-arm64-install.command"),
+    (f"{OUT}/LunarCore Claw-macOS-arm64.tar.xz", "LunarCore-Claw-0.11.0-mac-arm64.tar.xz"),
+    (f"{OUT}/LunarCore Claw-macOS-arm64.7z", "LunarCore-Claw-0.11.0-mac-arm64.7z"),
 ]
 
-BODY = """LunarCore Claw v0.10.2 · macOS Apple Silicon (darwin-arm64)
+BODY = """LunarCore Claw v0.11.0 · macOS Apple Silicon (darwin-arm64)
 
 多模型智能体平台：本地优先 · 投资研究一体化 · SHA-256 审计链。
 
@@ -37,17 +37,18 @@ BODY = """LunarCore Claw v0.10.2 · macOS Apple Silicon (darwin-arm64)
 ## 完整性校验（SHA-256）
 
 ```
-install.command: 5b6d45aa5681d0b7245a2f69c23db4e86df408c5288fa5f6889598f772ddd48f
-tar.xz:          9f30ce7f3190828ce96ea77a4593d9b2bb66390b1908a340fa39b53b246e7f15
-7z:              13625f29906199db1711985efe50d9f4115c6a89eab1e332a39d0726d29464da
+install.command: 832b6b3de54b24ebc0a408966369e30cf78d019e922e07dff9b97c2e6a14e50e
+tar.xz:          d86058652e24e063c94b3dd356f1bd5f253550119a5049e08f4a1de1658a9e06
+7z:              9583918d39186b5489cad580a8a366a1c53cc0aec05a286838e18f72aaf3ea77
 ```
 
-## 本版变更
+## 本版变更（v0.11.0 · Vibe-Trading 融合一）
 
-- 实盘网关页面隐藏（代码保留，可恢复）；观察期标准与模拟盘数据不受影响
-- 品牌更名 LunarCore Agent → LunarCore Claw，含数据目录自动迁移
-- v0.10.0 模拟盘 · 风险中心 · 决策中心 ensemble · 实盘网关观察级
-- v0.9.0 投资核心链路：持仓 / 日志 / 复盘 / 推演 / 基准 / 审计链
+- 数据源链式降级升级：先验顺序（低封禁风险在前）+ 健康度自适应重排，连续失败自动降权、恢复自动回升
+- 新增「数据链路」面板：三条链的顺序 / 健康分 / 成功率 / 耗时 / 最近错误，支持主动探测与一键清空
+- 新增「影子账户·行为诊断」：交易日志 FIFO 配对闭合回合，胜率 / 盈亏比 / 处置效应 / 报复性交易 / 过度交易，0-100 行为纪律分
+- 追涨杀跌扫描：买卖时点的近 20 日区间分位，识别追高买入与恐慌割肉
+- 思路来源：HKUDS/Vibe-Trading（MIT）23 源降级链与 Shadow Account
 """
 
 
@@ -70,11 +71,11 @@ def req(method, url, payload=None, raw=None, ctype=None):
 
 
 def main():
-    print("→ 创建 Release v0.10.2…")
+    print("→ 创建 Release v0.11.0…")
     rel = req("POST", f"{API}/repos/{REPO}/releases", {
-        "tag_name": "v0.10.2",
+        "tag_name": "v0.11.0",
         "target_commitish": "main",
-        "name": "LunarCore Claw v0.10.2",
+        "name": "LunarCore Claw v0.11.0",
         "body": BODY,
         "draft": False,
         "prerelease": False,
@@ -93,7 +94,7 @@ def main():
 
     print()
     print("✓ Release 发布完成！")
-    print(f"  https://github.com/{REPO}/releases/tag/v0.10.2")
+    print(f"  https://github.com/{REPO}/releases/tag/v0.11.0")
 
 
 if __name__ == "__main__":
