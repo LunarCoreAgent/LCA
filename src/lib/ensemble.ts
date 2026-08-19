@@ -46,7 +46,7 @@ export function resolveModel(id: string): ResolvedModel | null {
 }
 
 /** 一次性非流式调用（决策/投票场景，不污染对话消息流）；单模型 45s 超时，防止成员卡死拖住整轮 ensemble */
-async function callOnce(m: ResolvedModel, prompt: string): Promise<string> {
+export async function callOnce(m: ResolvedModel, prompt: string): Promise<string> {
   const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('调用超时（45s）')), 45000))
   const call = (async () => {
     if (m.kind === 'local') {

@@ -7,8 +7,8 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, Refere
 import { FlaskConical, ShieldCheck, Play } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { normalizeCode, fetchDailyKline } from '@/lib/marketApi'
-import { f, icBench, quantlibSelfTest } from '@/lib/quantlib'
+import { normalizeCode, fetchDailyKline, loadWatchList, DEFAULT_WATCH } from '@/lib/marketApi'
+import { f, icBench, crossSectionalIC, quantlibSelfTest } from '@/lib/quantlib'
 
 interface FactorDef { id: string; name: string; desc: string; calc: (o: OHLCV) => number[] }
 interface OHLCV { open: number[]; high: number[]; low: number[]; close: number[]; volume: number[] }
@@ -33,6 +33,7 @@ const num = (x: number, d = 3) => (Number.isNaN(x) ? '—' : x.toFixed(d))
 
 export default function AlphaZoo() {
   const [code, setCode] = useState('600519.SH')
+  const [mode, setMode] = useState<'single' | 'xs'>('single')
   const [rows, setRows] = useState<FactorRow[] | null>(null)
   const [running, setRunning] = useState(false)
   const [meta, setMeta] = useState('')
@@ -40,6 +41,7 @@ export default function AlphaZoo() {
   const passAll = selfTests.every((t) => t.pass)
 
   const run = async () => {
+    if (mode === 'xs') return runXs()
     const c = normalizeCode(code)
     if (!c) { toast.error('代码格式不正确'); return }
     setRunning(true)
@@ -66,14 +68,56 @@ export default function AlphaZoo() {
     }
   }
 
+  /** 横截面模式：自选股批量，逐日全截面秩 IC（462 动物园口径） */
+  const runXs = async () => {
+    const watch = loadWatchList(DEFAULT_WATCH).slice(0, 12)
+    if (watch.length < 3) { toast.error('自选股至少 3 只才能跑横截面（到「行情采集」添加）'); return }
+    setRunning(true)
+    try {
+      const byCode: Record<string, OHLCV> = {}
+      const failed: string[] = []
+      for (const w of watch) {
+        try {
+          const ks = await fetchDailyKline(w.code, 160)
+          if (ks.length < 60) { failed.push(w.name); continue }
+          byCode[w.code] = {
+            open: ks.map((k) => k.open), high: ks.map((k) => k.high), low: ks.map((k) => k.low),
+            close: ks.map((k) => k.close), volume: ks.map((k) => k.volume),
+          }
+        } catch { failed.push(w.name) }
+      }
+      const codes = Object.keys(byCode)
+      if (codes.length < 3) { toast.error(`有效标的不足 3 只（${failed.join('、')} 失败）`); return }
+      const out: FactorRow[] = FACTORS.map((fd) => {
+        const factorByCode: Record<string, number[]> = {}
+        const closeByCode: Record<string, number[]> = {}
+        for (const c of codes) { factorByCode[c] = fd.calc(byCode[c]); closeByCode[c] = byCode[c].close }
+        const st = crossSectionalIC(factorByCode, closeByCode, 5)
+        const latest = f.mean(codes.map((c) => [...factorByCode[c]].reverse().find((x) => !Number.isNaN(x)) ?? NaN).filter((x) => !Number.isNaN(x)))
+        return { ...fd, latest, ic: st.ic, rankIC: st.rankIC, icir: st.icir, posRate: st.positiveRate, days: st.days }
+      }).sort((a, b) => Math.abs(b.rankIC || 0) - Math.abs(a.rankIC || 0))
+      setRows(out)
+      setMeta(`横截面：${codes.length} 只自选股 × ${out[0]?.days ?? 0} 个交易日 · 前瞻 5 日收益${failed.length ? ` · 跳过 ${failed.join('、')}` : ''}`)
+      toast.success(`横截面 IC bench 完成（${codes.length} 只标的）`)
+    } catch (e) {
+      toast.error(`横截面计算失败：${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setRunning(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="因子工场 · IC Bench"
-        desc="本地 quantlib 驱动：9 个经典因子在任意标的的日 K 上计算，与未来 5 日收益做 IC / 秩 IC / ICIR 对账，衡量信号的真实预测力 —— 公式全部来自经过自检的 quantlib（Vibe-Trading：公式属于被测试的库，不属于提示词）"
+        desc="本地 quantlib 驱动：9 个经典因子与未来 5 日收益对账 IC / 秩 IC / ICIR——单标的看时序预测力，横截面（自选股批量）看选股区分度；公式全部来自经过自检的 quantlib（Vibe-Trading：公式属于被测试的库，不属于提示词）"
         extra={
           <div className="flex gap-2 items-center">
-            <Input className="w-36 h-8" value={code} onChange={(e) => setCode(e.target.value)} placeholder="600519.SH" />
+            <div className="flex rounded-md border border-border overflow-hidden">
+              <button className={cn('px-2.5 h-8 text-xs', mode === 'single' ? 'bg-primary text-primary-foreground' : 'bg-transparent')} onClick={() => setMode('single')}>单标的</button>
+              <button className={cn('px-2.5 h-8 text-xs', mode === 'xs' ? 'bg-primary text-primary-foreground' : 'bg-transparent')} onClick={() => setMode('xs')}>横截面·自选股</button>
+            </div>
+            {mode === 'single' && <Input className="w-36 h-8" value={code} onChange={(e) => setCode(e.target.value)} placeholder="600519.SH" />}
             <Button size="sm" onClick={run} disabled={running}><Play className="h-4 w-4 mr-1" />{running ? '计算中…' : '运行 IC Bench'}</Button>
           </div>
         }
@@ -154,7 +198,7 @@ export default function AlphaZoo() {
             </ResponsiveContainer>
           </div>
           <div className="text-xs text-muted-foreground mt-2">
-            判读口径（单标的时序 IC，样本为滚动 20 日窗口）：|秩 IC| ≥ 0.05 且 IC&gt;0 占比 ≥55% 视为有效；负秩 IC 的因子取反后同样可用。单标的 IC 弱于横截面选股口径属正常 —— 462 因子动物园的横截面 bench 在后续版本接入数据中心批量标的。
+            判读口径：|秩 IC| ≥ 0.05 且 IC&gt;0 占比 ≥55% 视为有效；负秩 IC 的因子取反后同样可用。单标的模式为时序 IC（滚动 20 日窗口）；横截面模式为逐日全截面秩 IC（462 因子动物园口径），标的越多区分度越可信。
           </div>
         </Section>
       )}
@@ -162,8 +206,8 @@ export default function AlphaZoo() {
       {!rows && (
         <Section title="使用说明" className="border-dashed">
           <div className="text-xs text-muted-foreground space-y-1">
-            <p>输入标的代码（600519.SH / 000001.SZ / 00700.HK / AAPL.US），点「运行 IC Bench」。</p>
-            <p>页面自动经自适应数据链拉取近 300 根日 K，计算 9 个因子的逐日序列，与前瞻 5 日收益做相关对账。</p>
+            <p><b>单标的</b>：输入代码（600519.SH / 00700.HK / AAPL.US），拉 300 根日 K，看因子的时序预测力。</p>
+            <p><b>横截面·自选股</b>：批量拉取自选股（≤12 只），逐日全截面秩 IC —— 选股区分度口径，更接近真实选股场景。</p>
             <p><FlaskConical className="h-3 w-3 inline" /> 灵感来源：Vibe-Trading 的 462 因子动物园（qlib158 / alpha101 / gtja191…）与「公式必须出自被测试的库」原则。</p>
           </div>
         </Section>

@@ -173,6 +173,42 @@ export const f = {
   // ===== 动量 =====
   roc: (c: number[], n: number): number[] => c.map((v, i) => (i < n ? NaN : v / c[i - n] - 1)),
   momentum: (c: number[], n: number): number[] => c.map((v, i) => (i < n ? NaN : v - c[i - n])),
+
+  // ===== 扩充：下行风险与相对表现 =====
+  /** 下行波动率（只统计负收益） */
+  downsideVol: (c: number[], ppy = 252): number => {
+    const dn = f.returns(c).filter((x) => !Number.isNaN(x) && x < 0)
+    return f.stdev(dn) * Math.sqrt(ppy)
+  },
+  sortino: (c: number[], rf = 0, ppy = 252): number => {
+    const dv = f.downsideVol(c, ppy)
+    if (!dv) return NaN
+    return (f.annReturn(c, ppy) - rf) / dv
+  },
+  /** 对基准的 beta 与 alpha（日化 alpha 年化后返回） */
+  betaAlpha: (c: number[], bench: number[], ppy = 252): { beta: number; alpha: number } => {
+    const rc = f.returns(c), rb = f.returns(bench)
+    const pairs = rc.map((v, i) => [v, rb[i]]).filter(([a, b]) => !Number.isNaN(a) && !Number.isNaN(b))
+    if (pairs.length < 5) return { beta: NaN, alpha: NaN }
+    const xs = pairs.map((p) => p[1]), ys = pairs.map((p) => p[0])
+    const { slope, intercept } = f.linreg(xs, ys)
+    return { beta: slope, alpha: intercept * ppy }
+  },
+
+  // ===== 扩充：通达信式序列工具 =====
+  hhv: (xs: number[], n: number): number[] => xs.map((_, i) => (i < n - 1 ? NaN : Math.max(...xs.slice(i - n + 1, i + 1)))),
+  llv: (xs: number[], n: number): number[] => xs.map((_, i) => (i < n - 1 ? NaN : Math.min(...xs.slice(i - n + 1, i + 1)))),
+  ref: (xs: number[], n: number): number[] => xs.map((_, i) => (i < n ? NaN : xs[i - n])),
+  /** 上穿：a 从下方穿越 b（同长序列） */
+  crossUp: (a: number[], b: number[]): boolean[] => a.map((v, i) => i > 0 && !Number.isNaN(v) && !Number.isNaN(b[i]) && a[i - 1] <= b[i - 1] && v > b[i]),
+  crossDown: (a: number[], b: number[]): boolean[] => a.map((v, i) => i > 0 && !Number.isNaN(v) && !Number.isNaN(b[i]) && a[i - 1] >= b[i - 1] && v < b[i]),
+  /** 最近 n 日内条件成立次数 */
+  count: (conds: boolean[], n: number): number[] => conds.map((_, i) => (i < n - 1 ? NaN : conds.slice(i - n + 1, i + 1).filter(Boolean).length)),
+  /** 距上次条件成立的周期数（从未成立为 NaN） */
+  barsSince: (conds: boolean[]): number[] => {
+    let last = -1
+    return conds.map((c, i) => { if (c) last = i; return last < 0 ? NaN : i - last })
+  },
 }
 
 /** 前瞻收益：t 日因子值 vs t+horizon 收益（末端 horizon 个为 NaN） */
@@ -207,6 +243,38 @@ export function icBench(factor: number[], closes: number[], horizon = 5): ICStat
   }
 }
 
+/** 横截面 IC bench：每个交易日用全部标的的因子值 vs 前瞻收益算秩 IC，汇总序列统计（462 动物园口径） */
+export function crossSectionalIC(
+  factorByCode: Record<string, number[]>,
+  closeByCode: Record<string, number[]>,
+  horizon = 5
+): ICStats & { series: number[] } {
+  const codes = Object.keys(factorByCode).filter((c) => closeByCode[c])
+  if (codes.length < 3) return { ic: NaN, rankIC: NaN, icir: NaN, positiveRate: NaN, days: 0, series: [] }
+  const len = Math.min(...codes.map((c) => factorByCode[c].length))
+  const fwdByCode: Record<string, number[]> = {}
+  for (const c of codes) fwdByCode[c] = forwardReturns(closeByCode[c], horizon)
+  const series: number[] = []
+  for (let t = 0; t < len; t++) {
+    const fv: number[] = [], rv: number[] = []
+    for (const c of codes) {
+      const a = factorByCode[c][t], b = fwdByCode[c][t]
+      if (!Number.isNaN(a) && !Number.isNaN(b)) { fv.push(a); rv.push(b) }
+    }
+    if (fv.length >= 3) {
+      const r = f.rankIC(fv, rv)
+      if (!Number.isNaN(r)) series.push(r)
+    }
+  }
+  if (series.length < 10) return { ic: NaN, rankIC: NaN, icir: NaN, positiveRate: NaN, days: series.length, series }
+  const m = f.mean(series), sd = f.stdev(series)
+  return {
+    ic: m, rankIC: m, icir: sd ? m / sd : NaN,
+    positiveRate: series.filter((x) => x > 0).length / series.length,
+    days: series.length, series,
+  }
+}
+
 /** 内置自检：已知输入验证关键公式，页面可直接展示「公式库可信」 */
 export function quantlibSelfTest(): { name: string; pass: boolean }[] {
   const eq = (a: number, b: number, eps = 1e-9) => Math.abs(a - b) < eps
@@ -229,5 +297,16 @@ export function quantlibSelfTest(): { name: string; pass: boolean }[] {
   const b = f.boll([5, 5, 5, 5, 5], 3, 2)
   t('boll 零波动带宽=0', eq(b.up[4], 5) && eq(b.dn[4], 5))
   t('sharpe 常数序列→NaN', Number.isNaN(f.sharpe([100, 100, 100])))
+  t('hhv/llv 区间极值', eq(f.hhv([1, 3, 2], 2)[2], 3) && eq(f.llv([1, 3, 2], 2)[2], 2))
+  t('crossUp 上穿', JSON.stringify(f.crossUp([1, 3], [2, 2])) === '[false,true]')
+  t('barsSince 周期计数', eq(f.barsSince([false, true, false, false])[3], 2))
+  // 横截面自检：因子排序 A<B<C 恒定，收益排序 A<B<C 恒定 → 每日秩 IC=1
+  const mk = (r: number) => Array.from({ length: 12 }, (_, i) => 10 * Math.pow(1 + r, i))
+  const cs = crossSectionalIC(
+    { A: new Array(12).fill(1), B: new Array(12).fill(2), C: new Array(12).fill(3) },
+    { A: mk(0.01), B: mk(0.02), C: mk(0.03) },
+    1
+  )
+  t('横截面 IC 完美单调→1', eq(cs.rankIC, 1) && cs.days === 11)
   return tests
 }

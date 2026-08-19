@@ -1,5 +1,5 @@
 // 版本履历：每次发布在此追加；APP_VERSION 与 package.json 保持一致
-export const APP_VERSION = '0.13.0'
+export const APP_VERSION = '0.14.0'
 
 export interface VersionNote {
   version: string
@@ -10,7 +10,16 @@ export interface VersionNote {
 
 export const VERSION_LOG: VersionNote[] = [
   {
-    version: 'v0.13.0', title: '本地 quantlib · 因子工场 IC Bench（Vibe-Trading 融合三）', current: true,
+    version: 'v0.14.0', title: '研究剧本 · 横截面因子 Bench（Vibe-Trading 融合收官）', current: true,
+    points: [
+      '新增「研究剧本」（量化分组）：四个内置剧本——盘前瞭望（交易日 8:30）、收盘复盘（15:30）、持仓体检（周五 20:00）、因子巡检（周一 9:00）；采集数据走自适应数据链 → 组装上下文 → 模型成稿（无模型自动降级数据直出）→ 存档最近 30 份并写入审计链',
+      '剧本可一键挂入定时任务（action 采用 playbook:<id> 结构化约定，调度器到点自动执行）',
+      '因子工场新增横截面模式：自选股批量（≤12 只）逐日全截面秩 IC（462 因子动物园口径），IC/ICIR/IC>0 占比对账，选股区分度直读',
+      'quantlib 扩充至 40+ 函数：下行波动率/Sortino/Beta-Alpha/HHV/LLV/REF/上穿下穿/条件计数/周期计数/横截面 IC；自检扩至 16 项（含横截面单调性断言）',
+    ],
+  },
+  {
+    version: 'v0.13.0', title: '本地 quantlib · 因子工场 IC Bench（Vibe-Trading 融合三）',
     points: [
       '本地 TypeScript 量化函数库 quantlib：收益/回撤/夏普/卡玛、均值/方差/相关/秩次/回归/zscore、SMA/EMA/WMA/MACD/RSI/KDJ/布林/ATR、ROC/动量、皮尔逊 IC 与斯皮尔曼秩 IC、前瞻收益与 IC bench——纯函数、暖窗期 NaN 约定、页面与 Agent 共用同一套公式',
       '公式自检机制：quantlib 内置 12 项已知输入断言（收益率/回撤/秩 IC/RSI 单边/MACD 多头排列/布林零波动…），因子工场页面实时展示自检通过状态，未过自检的公式不许上页面',

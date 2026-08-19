@@ -6,7 +6,7 @@ import {
   Clock, Brain, ShieldCheck, GraduationCap,
   CandlestickChart, ChartLine, Dna, DatabaseZap, Settings, ChevronDown, ChevronUp, Smartphone, Database, History, BookOpen,
   Wallet, BookMarked, ClipboardList, Telescope, Gauge,
-  PlayCircle, ShieldAlert, Network, Ghost, Activity, FlaskConical,
+  PlayCircle, ShieldAlert, Network, Ghost, Activity, FlaskConical, ScrollText,
 } from 'lucide-react'
 import logoUrl from '@/assets/logo.png'
 
@@ -45,6 +45,7 @@ export const NAV_GROUPS: { group: string; items: NavItem[] }[] = [
       { id: 'ensemble', label: '决策中心', icon: Network },
       { id: 'quant', label: '量化分析', icon: ChartLine },
       { id: 'alpha', label: '因子工场', icon: FlaskConical },
+      { id: 'playbooks', label: '研究剧本', icon: ScrollText },
     ],
   },
   {

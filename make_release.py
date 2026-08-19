@@ -15,12 +15,12 @@ if not TOKEN:
 
 OUT = "/mnt/agents/output"
 ASSETS = [
-    (f"{OUT}/LunarCore Claw一键安装.command", "LunarCore-Claw-0.12.0-mac-arm64-install.command"),
-    (f"{OUT}/LunarCore Claw-macOS-arm64.tar.xz", "LunarCore-Claw-0.12.0-mac-arm64.tar.xz"),
-    (f"{OUT}/LunarCore Claw-macOS-arm64.7z", "LunarCore-Claw-0.12.0-mac-arm64.7z"),
+    (f"{OUT}/LunarCore Claw一键安装.command", "LunarCore-Claw-0.13.0-mac-arm64-install.command"),
+    (f"{OUT}/LunarCore Claw-macOS-arm64.tar.xz", "LunarCore-Claw-0.13.0-mac-arm64.tar.xz"),
+    (f"{OUT}/LunarCore Claw-macOS-arm64.7z", "LunarCore-Claw-0.13.0-mac-arm64.7z"),
 ]
 
-BODY = """LunarCore Claw v0.12.0 · macOS Apple Silicon (darwin-arm64)
+BODY = """LunarCore Claw v0.13.0 · macOS Apple Silicon (darwin-arm64)
 
 多模型智能体平台：本地优先 · 投资研究一体化 · SHA-256 审计链。
 
@@ -37,17 +37,17 @@ BODY = """LunarCore Claw v0.12.0 · macOS Apple Silicon (darwin-arm64)
 ## 完整性校验（SHA-256）
 
 ```
-install.command: 5e5edc42cef60bd42d309865df6be119caf00ce613e429625d3b9017b2f9c52b
-tar.xz:          582551b13beb056be763b18608667500b8267a491fa4c0c623f39be345b4007a
-7z:              7311f175bfb8484862861e153f672fde461ede06260feb25f3e203a275d4db53
+install.command: aa307c909875963121cef32792082603f1203305d643b7a8715e8c84ce9a1e55
+tar.xz:          fcc9a8da05b8a19eafc13801c256ab2ba6b31c13ef9338945094d107e4f54e44
+7z:              83459f49d0e5451e7ac560ffdd699abe4bedec5e36b351954047d39eca110190
 ```
 
-## 本版变更（v0.12.0 · Vibe-Trading 融合二）
+## 本版变更（v0.13.0 · Vibe-Trading 融合三）
 
-- 行为规则提取：闭合回合 + 买卖时点 20 日分位 → 六类 IF-THEN 模式（追高买入/低吸买入/恐慌割肉/快进止盈/亏损扛单/快速止损），样本 ≥3 定性赚钱/亏钱模式
-- 影子回测：规则在历史 K 线机械重放，量化真人操作 vs 机械执行的盈亏差距（规避追高 / 恐慌单多拿 10 日 / 盈利单多拿 7 日 / 扛单改第 5 日止损）
-- 影子账户一键完成追涨杀跌扫描、规则卡片、回测对比三段分析
-- 上一版 v0.11.0：数据源自适应链（先验 + 健康度重排）+ 数据链路面板 + 影子账户行为诊断
+- 本地 TypeScript 量化函数库 quantlib：收益/风险/统计/均线/动量约 30 个纯函数，页面与 Agent 共用同一套公式
+- 公式自检：12 项已知输入断言，因子工场页面实时展示自检状态，未过自检的公式不上页面
+- 新增「因子工场」：任意标的日 K × 9 个经典因子，与前瞻 5 日收益对账 IC / 秩 IC / ICIR / IC>0 占比，自动判读有效/反向/噪声
+- 前两版：v0.11.0 数据源自适应链 + 影子账户行为诊断；v0.12.0 行为规则提取 + 影子回测
 """
 
 
@@ -70,11 +70,11 @@ def req(method, url, payload=None, raw=None, ctype=None):
 
 
 def main():
-    print("→ 创建 Release v0.12.0…")
+    print("→ 创建 Release v0.13.0…")
     rel = req("POST", f"{API}/repos/{REPO}/releases", {
-        "tag_name": "v0.12.0",
+        "tag_name": "v0.13.0",
         "target_commitish": "main",
-        "name": "LunarCore Claw v0.12.0",
+        "name": "LunarCore Claw v0.13.0",
         "body": BODY,
         "draft": False,
         "prerelease": False,
@@ -93,7 +93,7 @@ def main():
 
     print()
     print("✓ Release 发布完成！")
-    print(f"  https://github.com/{REPO}/releases/tag/v0.12.0")
+    print(f"  https://github.com/{REPO}/releases/tag/v0.13.0")
 
 
 if __name__ == "__main__":
