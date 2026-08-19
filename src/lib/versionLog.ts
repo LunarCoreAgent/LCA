@@ -1,5 +1,5 @@
 // 版本履历：每次发布在此追加；APP_VERSION 与 package.json 保持一致
-export const APP_VERSION = '0.10.2'
+export const APP_VERSION = '0.11.0'
 
 export interface VersionNote {
   version: string
@@ -10,7 +10,17 @@ export interface VersionNote {
 
 export const VERSION_LOG: VersionNote[] = [
   {
-    version: 'v0.10.2', title: '实盘网关页面隐藏', current: true,
+    version: 'v0.11.0', title: '数据源自适应链 · 影子账户行为诊断（Vibe-Trading 融合一）', current: true,
+    points: [
+      '多数据源链式降级升级：行情/K线链路按「先验顺序（低封禁风险在前）+ 健康度自适应重排」选择数据源——每次调用记录成功/失败/耗时，健康分 = 拉普拉斯平滑成功率 − 延迟惩罚，连续失败自动降权、恢复后自动回升',
+      '新增「数据链路」面板（市场分组）：行情/K线/资金流三条链的当前顺序、健康分、成功率、平均耗时、最近错误一目了然；支持主动链路探测（以贵州茅台为样本）与一键清空回到先验顺序',
+      '新增「影子账户·行为诊断」（量化分组）：交易日志 FIFO 配对成闭合回合，推导交易人格——胜率、盈亏比、处置效应（亏损单拿太久）、报复性交易（亏损后 5 日内买回）、过度交易、0-100 行为纪律分与规则化评语；月度闭合盈亏图与回合明细',
+      '追涨杀跌扫描：结合日 K 线计算买卖时点在近 20 日区间的分位，识别「追高买入」（>80% 分位）与「恐慌割肉」（<20% 分位且亏损）',
+      '思路来源：HKUDS/Vibe-Trading（MIT）的 23 源降级链与 Shadow Account；规则提取与影子回测将于 v0.12.0 落地',
+    ],
+  },
+  {
+    version: 'v0.10.2', title: '实盘网关页面隐藏',
     points: [
       '「实盘网关」页面从侧边栏导航与路由中隐藏（LiveTrading.tsx 代码保留，取消注释即可恢复）',
       '审计链「实盘网关」链保留：观察期标准与历史记录不受影响，模拟盘数据继续累积',

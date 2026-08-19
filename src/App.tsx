@@ -28,6 +28,8 @@ import RiskCenter from '@/pages/RiskCenter'
 // 实盘网关已隐藏（v0.10.2），恢复时取消下行注释
 // import LiveTrading from '@/pages/LiveTrading'
 import EnsembleCenter from '@/pages/EnsembleCenter'
+import ShadowAccount from '@/pages/ShadowAccount'
+import SourceHealth from '@/pages/SourceHealth'
 import { Toaster } from '@/components/ui/sonner'
 
 export default function App() {
@@ -59,6 +61,8 @@ export default function App() {
         {page === 'knowledge' && <Knowledge />}
         {page === 'portfolio' && <Portfolio />}
         {page === 'journal' && <Journal />}
+        {page === 'shadow' && <ShadowAccount />}
+        {page === 'sources' && <SourceHealth />}
         {page === 'review' && <DailyReview />}
         {page === 'prediction' && <Prediction />}
         {page === 'benchmark' && <Benchmark />}

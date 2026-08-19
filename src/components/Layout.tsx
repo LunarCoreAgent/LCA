@@ -6,7 +6,7 @@ import {
   Clock, Brain, ShieldCheck, GraduationCap,
   CandlestickChart, ChartLine, Dna, DatabaseZap, Settings, ChevronDown, ChevronUp, Smartphone, Database, History, BookOpen,
   Wallet, BookMarked, ClipboardList, Telescope, Gauge,
-  PlayCircle, ShieldAlert, Network,
+  PlayCircle, ShieldAlert, Network, Ghost, Activity,
 } from 'lucide-react'
 import logoUrl from '@/assets/logo.png'
 
@@ -26,6 +26,7 @@ export const NAV_GROUPS: { group: string; items: NavItem[] }[] = [
     items: [
       { id: 'stockdata', label: '行情采集', icon: CandlestickChart },
       { id: 'datacenter', label: '数据中心', icon: DatabaseZap },
+      { id: 'sources', label: '数据链路', icon: Activity },
     ],
   },
   {
@@ -33,6 +34,7 @@ export const NAV_GROUPS: { group: string; items: NavItem[] }[] = [
     items: [
       { id: 'portfolio', label: '投资组合', icon: Wallet },
       { id: 'journal', label: '交易日志', icon: BookMarked },
+      { id: 'shadow', label: '影子账户', icon: Ghost },
       { id: 'review', label: '每日复盘', icon: ClipboardList },
       { id: 'prediction', label: '推演预测', icon: Telescope },
       { id: 'benchmark', label: '预测基准', icon: Gauge },

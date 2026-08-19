@@ -2,6 +2,7 @@
 // 双通道：Electron 内走主进程 IPC（无跨域限制），浏览器开发时直连（该源支持 CORS）
 import type { Quote, TechRow } from './stockData'
 import { getDsKey } from './dataSources'
+import { orderedSources, timedCall, recordResult } from './sourceHealth'
 // window.agentcore 类型统一声明于 src/types/agentcore.d.ts
 
 export interface KPoint {
@@ -124,135 +125,137 @@ function mapQuote(f: Record<string, unknown>, freq: string): Quote | null {
 // 分批请求（每批 15 只），单批失败不影响其他批次 —— 解决大批量轮询时一次抖动全部离线的稳定性问题
 const BATCH = 15
 
-// 批量拉取实时快照；返回 { quotes, failed }，failed 为拉不到数据的代码
+// 东财批量快照（独立加载器，供自适应链调用）；网络异常时抛错，缺只返回已覆盖部分
+async function fetchEMQuotes(codes: string[], freqOf: (c: string) => string): Promise<Quote[]> {
+  const quotes: Quote[] = []
+  let covered: string[] = []
+  let batchesOk = 0
+  let batchesTotal = 0
+  const run = async (batch: string[], usMkt: 105 | 106) => {
+    batchesTotal += 1
+    const secids = batch.map((c) => toSecid(c, usMkt)).join(',')
+    const json = await getJson(quotesUrl(secids), 'quotes', secids)
+    const diff: Record<string, unknown>[] = json?.data?.diff ?? []
+    const byRaw = new Map(diff.map((f) => [String(f.f12), f]))
+    for (const code of batch) {
+      const f = byRaw.get(code.split('.')[0].toUpperCase())
+      const q = f ? mapQuote(f, freqOf(code)) : null
+      if (q) { q.code = code; quotes.push(q); covered.push(code) }
+    }
+    batchesOk += 1
+  }
+  for (let i = 0; i < codes.length; i += BATCH) {
+    const batch = codes.slice(i, i + BATCH).filter((c) => !c.endsWith('.US'))
+    if (batch.length > 0) { try { await run(batch, 105) } catch { /* 走链式降级 */ } }
+  }
+  const usCodes = codes.filter((c) => c.endsWith('.US'))
+  if (usCodes.length > 0) {
+    try { await run(usCodes, 105) } catch { /* 继续 */ }
+    const usMiss = usCodes.filter((c) => !covered.includes(c))
+    if (usMiss.length > 0) { try { await run(usMiss, 106) } catch { /* 继续 */ } }
+  }
+  if (batchesTotal > 0 && batchesOk === 0) throw new Error('东方财富全部批次不可达')
+  return quotes
+}
+
+// 批量拉取实时快照（v0.11.0 起：自适应降级链，按健康度重排，先验顺序 = 低封禁风险在前）
+// 返回 { quotes, failed }，failed 为所有源都拉不到数据的代码
 export async function fetchLiveQuotes(codes: string[], freqOf: (c: string) => string): Promise<{ quotes: Quote[]; failed: string[] }> {
   const uniq = [...new Set(codes)]
   const quotes: Quote[] = []
-  const failed: string[] = []
-  // 分批拉取，某一批异常仅该批进入 failed
-  for (let i = 0; i < uniq.length; i += BATCH) {
-    const batch = uniq.slice(i, i + BATCH)
-    const secids = batch.map((c) => toSecid(c)).join(',')
-    try {
-      const json = await getJson(quotesUrl(secids), 'quotes', secids)
-      const diff: Record<string, unknown>[] = json?.data?.diff ?? []
-      const byRaw = new Map(diff.map((f) => [String(f.f12), f]))
-      for (const code of batch) {
-        const f = byRaw.get(code.split('.')[0].toUpperCase())
-        const q = f ? mapQuote(f, freqOf(code)) : null
-        if (q) { q.code = code; quotes.push(q) } else failed.push(code)
-      }
-    } catch {
-      failed.push(...batch)
-    }
+  const sources: string[] = []
+  let remaining = [...uniq]
+  const cover = (got: Quote[], src: string) => {
+    for (const q of got) quotes.push(q)
+    remaining = remaining.filter((c) => !got.some((g) => g.code === c))
+    if (got.length > 0 && !sources.includes(src)) sources.push(src)
   }
-  // 美股回退：105（纳斯达克）查不到时试 106（纽交所）
-  const usFailed = failed.filter((c) => c.endsWith('.US'))
-  if (usFailed.length > 0) {
-    const secids = usFailed.map((c) => toSecid(c, 106)).join(',')
-    try {
-      const j2 = await getJson(quotesUrl(secids), 'quotes', secids)
-      const diff2: Record<string, unknown>[] = j2?.data?.diff ?? []
-      const byRaw2 = new Map(diff2.map((f) => [String(f.f12), f]))
-      for (const code of usFailed) {
-        const f = byRaw2.get(code.split('.')[0].toUpperCase())
-        const q = f ? mapQuote(f, freqOf(code)) : null
-        if (q) {
-          q.code = code
-          quotes.push(q)
-          failed.splice(failed.indexOf(code), 1)
-        }
-      }
-    } catch { /* 回退失败保持原状 */ }
+  // 主链：腾讯/东财/新浪（东财覆盖全市场含美股；腾讯/新浪限 A股+港股）
+  const loaders: Record<string, (cs: string[], f: (c: string) => string) => Promise<Quote[]>> = {
+    腾讯: fetchQQQuotes,
+    东方财富: fetchEMQuotes,
+    新浪: fetchSinaQuotes,
   }
-  // 备用源链：腾讯 → 新浪（A股）→ Yahoo（港/美国际）
-  const sources: string[] = quotes.length > 0 ? ['东方财富'] : []
-  if (failed.length > 0) {
+  for (const src of orderedSources('quotes', ['腾讯', '东方财富', '新浪'])) {
+    if (remaining.length === 0) break
+    const targets = src === '东方财富' ? remaining : remaining.filter((c) => !c.endsWith('.US'))
+    if (targets.length === 0) continue
     try {
-      const qq = await fetchQQQuotes(failed, freqOf)
-      for (const q of qq) { quotes.push(q); failed.splice(failed.indexOf(q.code), 1) }
-      if (qq.length > 0) sources.push('腾讯')
-    } catch { /* 腾讯源不可达 */ }
-  }
-  if (failed.length > 0) {
-    try {
-      const sina = await fetchSinaQuotes(failed, freqOf)
-      for (const q of sina) { quotes.push(q); failed.splice(failed.indexOf(q.code), 1) }
-      if (sina.length > 0) sources.push('新浪')
-    } catch { /* 新浪源不可达 */ }
+      const got = await timedCall('quotes', src, () => loaders[src](targets, freqOf))
+      cover(got, src)
+    } catch { /* 链式降级到下一源 */ }
   }
   // 国际兜底：港/美标的前序源均失败时走 Yahoo Finance
-  const intlFailed = failed.filter((c) => c.endsWith('.US') || c.endsWith('.HK'))
-  for (const code of intlFailed) {
+  for (const code of remaining.filter((c) => c.endsWith('.US') || c.endsWith('.HK'))) {
     try {
-      const q = await fetchYahooQuote(code, freqOf(code))
-      if (q) {
-        quotes.push(q)
-        failed.splice(failed.indexOf(code), 1)
-        if (!sources.includes('Yahoo')) sources.push('Yahoo')
-      }
+      const q = await timedCall('quotes', 'Yahoo', () => fetchYahooQuote(code, freqOf(code)))
+      if (q) cover([q], 'Yahoo')
     } catch { /* 单只失败保持 failed */ }
   }
   // Python 数据桥（AkShare）：桥在线时作为 A股 强力备源
-  if (failed.some((c) => /\.(SH|SZ|BJ)$/.test(c))) {
+  if (remaining.some((c) => /\.(SH|SZ|BJ)$/.test(c))) {
     const pb = await probePyBridge()
     if (pb.online && pb.akshare) {
-      const bq = await fetchBridgeQuotes(failed, freqOf)
-      for (const q of bq) { quotes.push(q); failed.splice(failed.indexOf(q.code), 1) }
-      if (bq.length > 0) sources.push('Python桥·AkShare')
+      try {
+        const bq = await timedCall('quotes', 'Python桥', () => fetchBridgeQuotes(remaining, freqOf))
+        cover(bq, 'Python桥·AkShare')
+      } catch { /* 桥调用失败降级 */ }
     }
   }
   // 可选 Key 源（数据中心「数据源」页配置后自动启用）：A股 智兔→聚合；美股 AV→Finnhub→TwelveData→Polygon
-  if (failed.length > 0 && getDsKey('zhitu')) {
+  if (remaining.length > 0 && getDsKey('zhitu')) {
     try {
-      const zt = await fetchZhiTuQuotes(failed, freqOf)
-      for (const q of zt) { quotes.push(q); failed.splice(failed.indexOf(q.code), 1) }
-      if (zt.length > 0) sources.push('智兔数服')
+      const zt = await timedCall('quotes', '智兔数服', () => fetchZhiTuQuotes(remaining, freqOf))
+      cover(zt, '智兔数服')
     } catch { /* 智兔不可达 */ }
   }
-  if (failed.length > 0 && getDsKey('juhe')) {
+  if (remaining.length > 0 && getDsKey('juhe')) {
     try {
-      const jh = await fetchJuheQuotes(failed, freqOf)
-      for (const q of jh) { quotes.push(q); failed.splice(failed.indexOf(q.code), 1) }
-      if (jh.length > 0) sources.push('聚合数据')
+      const jh = await timedCall('quotes', '聚合数据', () => fetchJuheQuotes(remaining, freqOf))
+      cover(jh, '聚合数据')
     } catch { /* 聚合不可达 */ }
   }
-  for (const code of failed.filter((c) => c.endsWith('.US'))) {
-    const got = await fetchUsKeyQuote(code, freqOf(code))
-    if (got) {
-      quotes.push(got.q)
-      failed.splice(failed.indexOf(code), 1)
-      if (!sources.includes(got.src)) sources.push(got.src)
-    }
+  for (const code of remaining.filter((c) => c.endsWith('.US'))) {
+    try {
+      const got = await fetchUsKeyQuote(code, freqOf(code))
+      if (got) cover([got.q], got.src)
+    } catch { /* 保持 failed */ }
   }
-  if (sources.length === 0 && quotes.length > 0) sources.push('东方财富')
+  const failed = remaining
   sourceStatus.quotes = sources.join(' + ') || '全部不可达'
   sourceStatus.detail = failed.length > 0 ? `${failed.length} 只标的未取到` : ''
   return { quotes, failed }
 }
 
 // 拉取日 K 线（前复权，最近 lmt 个交易日）
+// v0.11.0 起：腾讯/东财双源自适应链（健康度自动重排），Python桥/Yahoo/Tushare 依次兜底
 export async function fetchDailyKline(code: string, lmt = 90): Promise<KPoint[]> {
-  const fetchBy = async (secid: string): Promise<KPoint[]> => {
-    try {
+  const fetchEM = async (): Promise<KPoint[]> => {
+    const fetchBy = async (secid: string): Promise<KPoint[]> => {
       const json = await getJson(klineUrl(secid, lmt), 'kline', secid, lmt)
       const lines: string[] = json?.data?.klines ?? []
       return lines.map((ln) => {
         const [date, o, c, h, l, v, a] = ln.split(',')
         return { date, open: +o, close: +c, high: +h, low: +l, volume: +v, amount: +a } as KPoint
       })
-    } catch { return [] } // 东财不可达时返回空，交由腾讯/Yahoo 备用源接力
+    }
+    let ks = await fetchBy(toSecid(code))
+    if (ks.length === 0 && code.endsWith('.US')) ks = await fetchBy(toSecid(code, 106))
+    return ks
   }
-  let ks = await fetchBy(toSecid(code))
-  if (ks.length === 0 && code.endsWith('.US')) ks = await fetchBy(toSecid(code, 106))
-  if (ks.length > 0) { sourceStatus.kline = '东方财富'; return ks }
-  // 备用源：腾讯日 K（前复权，A股/港股）
   const qqSym = toQQSymbol(code)
-  if (qqSym) {
+  let ks: KPoint[] = []
+  // 主链自适应：网络成功但无数据（停牌等）记录成功并继续；网络异常记录失败并降级
+  for (const src of orderedSources('kline', ['腾讯', '东方财富'])) {
+    if (src === '腾讯' && !qqSym) continue // 腾讯无美股
+    const t0 = Date.now()
     try {
-      ks = await fetchQQKline(qqSym, lmt)
-      if (ks.length > 0) { sourceStatus.kline = '腾讯（东财不可达，已切换）'; return ks }
-    } catch { /* 继续 */ }
+      ks = src === '腾讯' ? await fetchQQKline(qqSym!, lmt) : await fetchEM()
+      recordResult('kline', src, true, Date.now() - t0)
+      if (ks.length > 0) { sourceStatus.kline = src; return ks }
+    } catch (e) {
+      recordResult('kline', src, false, Date.now() - t0, e instanceof Error ? e.message : String(e))
+    }
   }
   // Python 数据桥（BaoStock）：A股 K 线强力备源
   if (ks.length === 0 && /\.(SH|SZ|BJ)$/.test(code)) {
@@ -325,7 +328,7 @@ function toQQSymbol(code: string): string | null {
 
 export async function fetchText(url: string, encoding: 'utf8' | 'gbk' = 'utf8', referer?: string): Promise<string> {
   if (window.agentcore?.market) return window.agentcore.market.text(url, encoding, referer)
-  const r = await fetch(url, referer ? { headers: { Referer: referer } } : undefined)
+  const r = await fetch(url, { ...(referer ? { headers: { Referer: referer } } : {}), signal: AbortSignal.timeout(8000) })
   if (!r.ok) throw new Error(`HTTP ${r.status}`)
   if (encoding === 'gbk') return new TextDecoder('gbk').decode(await r.arrayBuffer())
   return r.text()
